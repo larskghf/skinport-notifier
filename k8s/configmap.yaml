@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: skinport-bot-config
+data:
+  config.py: |
+    import os
+
+    # Skinport API Configuration
+    SKINPORT_API_URL = "https://api.skinport.com/v1"
+    SKINPORT_API_KEY = os.getenv("SKINPORT_API_KEY")
+    SKINPORT_API_SECRET = os.getenv("SKINPORT_API_SECRET")
+
+    # Discord Webhook Configuration
+    DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
+
+    # Items to monitor with optional price thresholds
+    TARGET_ITEMS = {
+        "★ Falchion Knife | Gamma Doppler (Factory New)": 350.00,
+        "M4A4 | Etch Lord (Minimal Wear)": None,
+        "Kilowatt Case": 1.50,
+        "Chroma 2 Case": None,
+        "Operation Breakout Weapon Case": 3.00,
+        "Gallery Case": None
+    }
+
+    # Check interval in minutes
+    CHECK_INTERVAL = 5
+
+    # Rate limit handling
+    RATE_LIMIT_DELAY = 60 * 60  # 60 minutes in seconds 

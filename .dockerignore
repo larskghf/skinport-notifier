@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.env
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Kubernetes
+k8s/
+
+# Git
+.git/
+.gitignore
+
+# Project specific
+items_*.json 

@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skinport-bot
+  labels:
+    app: skinport-bot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: skinport-bot
+  template:
+    metadata:
+      labels:
+        app: skinport-bot
+    spec:
+      containers:
+      - name: skinport-bot
+        image: ghcr.io/larskghf/skinport-notifier:latest
+        imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+        envFrom:
+        - secretRef:
+            name: skinport-bot-secrets
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config.py
+          subPath: config.py
+      volumes:
+      - name: config-volume
+        configMap:
+          name: skinport-bot-config 
