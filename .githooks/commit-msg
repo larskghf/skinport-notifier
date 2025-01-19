@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# Prüfe auf Conventional Commits Format
+commit_msg=$(cat "$1")
+pattern="^(feat|fix|docs|style|refactor|test|chore)(\([a-z]+\))?: .+"
+
+if ! echo "$commit_msg" | grep -qE "$pattern"; then
+    echo "❌ Error: Commit message must follow Conventional Commits format:"
+    echo "type(scope): description"
+    echo ""
+    echo "✅ Valid types: feat, fix, docs, style, refactor, test, chore"
+    echo ""
+    echo "📝 Examples:"
+    echo "feat: add new feature"
+    echo "fix(api): handle timeout errors"
+    echo "docs: update README"
+    exit 1
+fi 
