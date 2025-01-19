@@ -120,6 +120,30 @@ The bot sends notifications in the following cases:
 docker buildx build --platform linux/amd64,linux/arm64 -t your-tag .
 ```
 
+### Git Hooks
+
+This repository uses Git hooks for commit message validation. To set them up:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The hooks ensure that commit messages follow the [Conventional Commits](https://www.conventionalcommits.org/) format:
+- `feat`: A new feature
+- `fix`: A bug fix
+- `docs`: Documentation changes
+- `style`: Code style changes
+- `refactor`: Code refactoring
+- `test`: Adding or updating tests
+- `chore`: Maintenance tasks
+
+Example commit messages:
+```bash
+feat: add new feature
+fix(api): handle timeout errors
+docs: update installation guide
+```
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
