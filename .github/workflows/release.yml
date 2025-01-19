@@ -10,11 +10,14 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: main  # Explicitly checkout main branch
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -29,7 +32,12 @@ jobs:
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: Generate Full Changelog
+        id: changelog
         run: |
+          # Ensure we're on the latest main
+          git fetch origin main
+          git reset --hard origin/main
+          
           # Get the previous version tag
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           
@@ -42,17 +50,44 @@ jobs:
           fi
           
           # Stage the changes
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
           git add CHANGELOG.md
           
           # Commit and push if there are changes
           if git diff --staged --quiet; then
             echo "No changes to commit"
+            echo "changes_made=false" >> $GITHUB_OUTPUT
           else
             git commit -m "docs(changelog): update for ${{ steps.get_version.outputs.VERSION }}"
-            git push
+            
+            # Try to push directly first
+            if git push origin main; then
+              echo "changes_made=true" >> $GITHUB_OUTPUT
+              echo "pr_needed=false" >> $GITHUB_OUTPUT
+            else
+              # If direct push fails, create a branch and PR
+              BRANCH_NAME="docs/changelog-${{ steps.get_version.outputs.VERSION }}"
+              git checkout -b $BRANCH_NAME
+              git push origin $BRANCH_NAME
+              echo "changes_made=true" >> $GITHUB_OUTPUT
+              echo "pr_needed=true" >> $GITHUB_OUTPUT
+              echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+            fi
           fi
+
+      - name: Create Pull Request
+        if: steps.changelog.outputs.changes_made == 'true' && steps.changelog.outputs.pr_needed == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: "docs(changelog): update for ${{ steps.get_version.outputs.VERSION }}"
+          branch: ${{ steps.changelog.outputs.branch_name }}
+          base: main
+          body: |
+            Automated changelog update for version ${{ steps.get_version.outputs.VERSION }}
+            
+            This PR was automatically created by the release workflow.
 
       - name: Generate Release Notes
         run: |
