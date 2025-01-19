@@ -125,6 +125,10 @@ docker buildx build --platform linux/amd64,linux/arm64 -t your-tag .
 This repository uses Git hooks for commit message validation. To set them up:
 
 ```bash
+# Make the hook executable
+chmod +x .githooks/commit-msg
+
+# Configure Git to use the hooks directory
 git config core.hooksPath .githooks
 ```
 
