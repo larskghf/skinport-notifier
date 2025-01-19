@@ -113,16 +113,21 @@ def send_discord_notification(item, changes):
         change_descriptions.append(f"Quantity increased by {quantity_change}")
     
     if 'price_change' in changes:
-        old_price = changes['price_change']['old']
-        new_price = changes['price_change']['new']
-        price_diff = old_price - new_price
-        
-        if 'threshold' in changes['price_change']:
+        if changes['price_change'].get('initial'):
             threshold = changes['price_change']['threshold']
-            change_descriptions.append(f"💰 Price dropped below €{threshold:.2f} threshold!")
-            change_descriptions.append(f"Price decreased by €{price_diff:.2f} (from €{old_price:.2f} to €{new_price:.2f})")
+            current_price = changes['price_change']['new']
+            change_descriptions.append(f"💰 Initial price (€{current_price:.2f}) is below threshold of €{threshold:.2f}!")
         else:
-            change_descriptions.append(f"Price decreased by €{price_diff:.2f} (from €{old_price:.2f} to €{new_price:.2f})")
+            old_price = changes['price_change']['old']
+            new_price = changes['price_change']['new']
+            price_diff = abs(new_price - old_price)
+            direction = "decreased" if new_price < old_price else "increased"
+            
+            if 'threshold' in changes['price_change']:
+                threshold = changes['price_change']['threshold']
+                change_descriptions.append(f"💰 Price {direction} while below €{threshold:.2f} threshold!")
+            
+            change_descriptions.append(f"Price {direction} by €{price_diff:.2f} (from €{old_price:.2f} to €{new_price:.2f})")
     
     embed = {
         "title": "🔔 New Listing Alert!",
@@ -178,7 +183,18 @@ def check_for_new_items():
             last_state = last_known_states.get(target_item)
             changes = {}
             
-            if last_state is not None:
+            # Initial state handling
+            if last_state is None:
+                # If price threshold is set and current price is below threshold
+                # send immediate notification
+                if price_threshold is not None and current_state['min_price'] < price_threshold:
+                    changes['price_change'] = {
+                        'old': current_state['min_price'],  # Use current price as old price for initial notification
+                        'new': current_state['min_price'],
+                        'threshold': price_threshold,
+                        'initial': True  # Mark as initial notification
+                    }
+            else:
                 # If no price threshold is set, check both quantity and price
                 if price_threshold is None:
                     # Check for quantity increase
@@ -192,13 +208,23 @@ def check_for_new_items():
                             'new': current_state['min_price']
                         }
                 
-                # If price threshold is set, only check for prices below threshold
+                # If price threshold is set
                 else:
-                    # Check if price dropped below threshold
-                    if current_state['min_price'] < price_threshold and (
-                        last_state['min_price'] >= price_threshold or  # Price just dropped below threshold
-                        current_state['min_price'] < last_state['min_price']  # Price decreased further while below threshold
-                    ):
+                    # If current price is below threshold
+                    if current_state['min_price'] < price_threshold:
+                        # Always check for quantity changes when below threshold
+                        if current_state['quantity'] > last_state['quantity']:
+                            changes['quantity_change'] = current_state['quantity'] - last_state['quantity']
+                        
+                        # Check for any price change (both directions)
+                        if current_state['min_price'] != last_state['min_price']:
+                            changes['price_change'] = {
+                                'old': last_state['min_price'],
+                                'new': current_state['min_price'],
+                                'threshold': price_threshold
+                            }
+                    # If price just dropped below threshold
+                    elif last_state['min_price'] >= price_threshold:
                         changes['price_change'] = {
                             'old': last_state['min_price'],
                             'new': current_state['min_price'],
@@ -211,9 +237,14 @@ def check_for_new_items():
                     if 'quantity_change' in changes:
                         print(f"- Quantity increased by {changes['quantity_change']}")
                     if 'price_change' in changes:
-                        print(f"- Price decreased from €{changes['price_change']['old']:.2f} to €{changes['price_change']['new']:.2f}")
-                        if 'threshold' in changes['price_change']:
-                            print(f"  (Below threshold of €{changes['price_change']['threshold']:.2f})")
+                        if changes['price_change'].get('initial'):
+                            print(f"- Initial price below threshold of €{changes['price_change']['threshold']:.2f} (Current: €{changes['price_change']['new']:.2f})")
+                        else:
+                            price_change = changes['price_change']['new'] - changes['price_change']['old']
+                            direction = "decreased" if price_change < 0 else "increased"
+                            print(f"- Price {direction} from €{changes['price_change']['old']:.2f} to €{changes['price_change']['new']:.2f}")
+                            if 'threshold' in changes['price_change']:
+                                print(f"  (Below threshold of €{changes['price_change']['threshold']:.2f})")
                     send_discord_notification(item, changes)
             
             # Update the last known state
