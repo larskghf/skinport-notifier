@@ -129,6 +129,14 @@ def send_discord_notification(item, changes):
             
             change_descriptions.append(f"Price {direction} by €{price_diff:.2f} (from €{old_price:.2f} to €{new_price:.2f})")
     
+    # Prüfe ob Preise verfügbar sind
+    current_price = item['min_price'] if item['min_price'] is not None else "Not available"
+    suggested_price = item['suggested_price'] if item['suggested_price'] is not None else "Not available"
+    
+    # Formatiere Preise nur wenn sie numerisch sind
+    current_price_str = f"€{current_price:.2f}" if isinstance(current_price, (int, float)) else current_price
+    suggested_price_str = f"€{suggested_price:.2f}" if isinstance(suggested_price, (int, float)) else suggested_price
+    
     embed = {
         "title": "🔔 New Listing Alert!",
         "description": f"**{item['market_hash_name']}**\n" + "\n".join(change_descriptions),
@@ -136,12 +144,12 @@ def send_discord_notification(item, changes):
         "fields": [
             {
                 "name": "Current Price",
-                "value": f"€{item['min_price']:.2f}",
+                "value": current_price_str,
                 "inline": True
             },
             {
                 "name": "Suggested Price",
-                "value": f"€{item['suggested_price']:.2f}",
+                "value": suggested_price_str,
                 "inline": True
             },
             {
@@ -177,7 +185,7 @@ def check_for_new_items():
             item = items_dict[target_item]
             current_state = {
                 'quantity': item['quantity'],
-                'min_price': item['min_price']
+                'min_price': item['min_price'] if item['min_price'] is not None else float('inf')  # Verwende inf wenn kein Preis verfügbar
             }
             
             last_state = last_known_states.get(target_item)
@@ -187,12 +195,12 @@ def check_for_new_items():
             if last_state is None:
                 # If price threshold is set and current price is below threshold
                 # send immediate notification
-                if price_threshold is not None and current_state['min_price'] < price_threshold:
+                if price_threshold is not None and current_state['min_price'] != float('inf') and current_state['min_price'] < price_threshold:
                     changes['price_change'] = {
-                        'old': current_state['min_price'],  # Use current price as old price for initial notification
+                        'old': current_state['min_price'],
                         'new': current_state['min_price'],
                         'threshold': price_threshold,
-                        'initial': True  # Mark as initial notification
+                        'initial': True
                     }
             else:
                 # If no price threshold is set, check both quantity and price
@@ -201,35 +209,37 @@ def check_for_new_items():
                     if current_state['quantity'] > last_state['quantity']:
                         changes['quantity_change'] = current_state['quantity'] - last_state['quantity']
                     
-                    # Check for any price decrease
-                    if current_state['min_price'] < last_state['min_price']:
-                        changes['price_change'] = {
-                            'old': last_state['min_price'],
-                            'new': current_state['min_price']
-                        }
+                    # Check for any price decrease (nur wenn beide Preise verfügbar sind)
+                    if current_state['min_price'] != float('inf') and last_state['min_price'] != float('inf'):
+                        if current_state['min_price'] < last_state['min_price']:
+                            changes['price_change'] = {
+                                'old': last_state['min_price'],
+                                'new': current_state['min_price']
+                            }
                 
                 # If price threshold is set
                 else:
-                    # If current price is below threshold
-                    if current_state['min_price'] < price_threshold:
+                    # If current price is below threshold (nur wenn Preis verfügbar)
+                    if current_state['min_price'] != float('inf') and current_state['min_price'] < price_threshold:
                         # Always check for quantity changes when below threshold
                         if current_state['quantity'] > last_state['quantity']:
                             changes['quantity_change'] = current_state['quantity'] - last_state['quantity']
                         
                         # Check for any price change (both directions)
-                        if current_state['min_price'] != last_state['min_price']:
+                        if last_state['min_price'] != float('inf') and current_state['min_price'] != last_state['min_price']:
                             changes['price_change'] = {
                                 'old': last_state['min_price'],
                                 'new': current_state['min_price'],
                                 'threshold': price_threshold
                             }
-                    # If price just dropped below threshold
-                    elif last_state['min_price'] >= price_threshold:
-                        changes['price_change'] = {
-                            'old': last_state['min_price'],
-                            'new': current_state['min_price'],
-                            'threshold': price_threshold
-                        }
+                    # If price just dropped below threshold (nur wenn beide Preise verfügbar)
+                    elif last_state['min_price'] != float('inf') and current_state['min_price'] != float('inf'):
+                        if last_state['min_price'] >= price_threshold and current_state['min_price'] < price_threshold:
+                            changes['price_change'] = {
+                                'old': last_state['min_price'],
+                                'new': current_state['min_price'],
+                                'threshold': price_threshold
+                            }
                 
                 # Send notification if there are any relevant changes
                 if changes:
@@ -252,12 +262,20 @@ def check_for_new_items():
             
             # Print status message
             if last_state is None:
-                status = f"Initial state for {target_item}: {current_state['quantity']} items at €{current_state['min_price']:.2f}"
+                status = f"Initial state for {target_item}: {current_state['quantity']} items"
+                if current_state['min_price'] != float('inf'):
+                    status += f" at €{current_state['min_price']:.2f}"
+                else:
+                    status += " (no price available)"
                 if price_threshold is not None:
                     status += f" (Threshold: €{price_threshold:.2f})"
                 print(status)
             else:
-                status = f"Current state for {target_item}: {current_state['quantity']} items at €{current_state['min_price']:.2f}"
+                status = f"Current state for {target_item}: {current_state['quantity']} items"
+                if current_state['min_price'] != float('inf'):
+                    status += f" at €{current_state['min_price']:.2f}"
+                else:
+                    status += " (no price available)"
                 if price_threshold is not None:
                     status += f" (Threshold: €{price_threshold:.2f})"
                 print(status)
