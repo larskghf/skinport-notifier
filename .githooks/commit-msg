@@ -2,17 +2,39 @@
 
 # Prüfe auf Conventional Commits Format
 commit_msg=$(cat "$1")
-pattern="^(feat|fix|docs|style|refactor|test|chore)(\([a-z]+\))?: .+"
 
-if ! echo "$commit_msg" | grep -qE "$pattern"; then
+# Erste Zeile der Commit Message
+first_line=$(echo "$commit_msg" | head -n 1)
+
+# Erlaubte Commit Types
+valid_types="feat|fix|docs|style|refactor|test|chore"
+pattern="^($valid_types)(\([a-z-]+\))?: .+"
+
+if ! echo "$first_line" | grep -qE "$pattern"; then
     echo "❌ Error: Commit message must follow Conventional Commits format:"
     echo "type(scope): description"
     echo ""
-    echo "✅ Valid types: feat, fix, docs, style, refactor, test, chore"
+    echo "✅ Valid types:"
+    echo "- feat:     New features"
+    echo "- fix:      Bug fixes"
+    echo "- docs:     Documentation changes"
+    echo "- style:    Code style changes (formatting, etc)"
+    echo "- refactor: Code refactoring"
+    echo "- test:     Adding or updating tests"
+    echo "- chore:    Maintenance tasks"
+    echo ""
+    echo "❌ Invalid commit message: $first_line"
     echo ""
     echo "📝 Examples:"
-    echo "feat: add new feature"
-    echo "fix(api): handle timeout errors"
+    echo "feat(api): add new endpoint"
+    echo "fix: resolve memory leak"
     echo "docs: update README"
+    exit 1
+fi
+
+# Prüfe Beschreibung auf Mindestlänge
+description=$(echo "$first_line" | sed -E "s/^($valid_types)(\([a-z-]+\))?: //")
+if [ ${#description} -lt 10 ]; then
+    echo "❌ Error: Commit description must be at least 10 characters long"
     exit 1
 fi 
