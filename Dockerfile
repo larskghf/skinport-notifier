@@ -15,4 +15,7 @@ RUN useradd -m botuser && \
     chown -R botuser:botuser /app
 USER botuser
 
-CMD ["python", "main.py"] 
+# Run Python in unbuffered mode
+ENV PYTHONUNBUFFERED=1
+
+CMD ["python", "-u", "main.py"] 
